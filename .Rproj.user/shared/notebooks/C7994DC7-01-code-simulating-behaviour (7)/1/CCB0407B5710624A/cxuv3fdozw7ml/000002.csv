@@ -1,0 +1,13 @@
+"0","# Merge with oa_boundaries for plotting.
+plot <- oa_boundaries %>%
+  left_join(plot_data) %>%
+  ggplot()+
+    geom_sf(aes(fill=statistic_value_bin), colour=NA)+
+    geom_sf(data=ward_boundaries, fill=""transparent"", colour=""#636363"", size=0.1)+
+    coord_sf(crs=st_crs(oa_boundaries), datum=NA)+
+    scale_fill_distiller(palette=""Blues"", direction=1, guide=FALSE)+
+    theme(axis.title=element_blank())+
+    facet_wrap(~statistic_type, nrow=1)
+"
+"1","Joining, by = ""oa_code""
+"

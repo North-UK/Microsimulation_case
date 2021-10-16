@@ -1,0 +1,61 @@
+"0","# For performing microsimulation.
+install.packages(""rakeR"")
+"
+"2","WARNING: Rtools is required to build R packages but is not currently installed. Please download and install the appropriate version of Rtools before proceeding:
+
+https://cran.rstudio.com/bin/windows/Rtools/
+"
+"2","Installing package into ‘C:/Users/sud_m/Documents/R/win-library/4.1’
+(as ‘lib’ is unspecified)
+"
+"2","also installing the dependencies ‘logging’, ‘ipfp’, ‘wrswoR’
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.1/logging_0.10-108.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 152386 bytes (148 KB)
+"
+"2","downloaded 148 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.1/ipfp_1.0.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 27301 bytes (26 KB)
+"
+"2","downloaded 26 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.1/wrswoR_1.1.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 748991 bytes (731 KB)
+"
+"2","downloaded 731 KB
+
+"
+"2","trying URL 'https://cran.rstudio.com/bin/windows/contrib/4.1/rakeR_0.2.1.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 40614 bytes (39 KB)
+"
+"2","downloaded 39 KB
+
+"
+"1","package ‘logging’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘ipfp’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘wrswoR’ successfully unpacked and MD5 sums checked
+"
+"1","package ‘rakeR’ successfully unpacked and MD5 sums checked
+"
+"1","
+"
+"1",""
+"1","The downloaded binary packages are in
+	C:\Users\sud_m\AppData\Local\Temp\Rtmpk1h6JK\downloaded_packages"
+"1",""
+"1","
+"

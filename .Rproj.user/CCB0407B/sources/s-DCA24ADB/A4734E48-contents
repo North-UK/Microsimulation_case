@@ -1,0 +1,172 @@
+
+# Data and Methods
+
+After having created the microsimulated data, we are left with 19 variables, one of which (Holiday_type) was determined while the data was simulated. A breakdown of the variables can be observed in the table below:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(kableExtra)
+data_overview <- tribble(
+  ~Variable, ~Detail,
+  "Person_id", "ID of respondent.",
+  "Zone", "Leeds Output Area Classification.",
+  "Oac_grp", "OA Supergroup.",
+  "Sex", "Respondent's sex",
+  "Age_band", "Repondent's age band.",
+  "Number_children", "Number of children per respondent",
+  "Household_income", "Respondent's household income",
+  "Overseas_airport", "The name of the overseas airport.",
+  "UK_airport", "Name of the airport in the UK.",
+  "Satisafaction_overall","Level of satisfaction with most recent holiday.",
+  "Age_sex", "Sex and Age.",
+  "Supergroup_name", "Respondent's supergroup.",
+  "Dest_airport_name", "The name of the destination airport.",
+  "Dest_airport_city","The name of the city the destination airport is in.",
+  "Dest_airport_country","The name of the country the destination airport is in.",
+  "Orig_airport_name","The name of the origin airport.",
+  "Orig_airport_city","The name of the city the origin airport is in.",
+  "Holiday_type", "The name of the city the origin airport is in in.")
+kable(data_overview, "html") %>% 
+ kable_styling(full_width=F)
+```
+
+The first few entries can be seen below: 
+
+```{r, echo=FALSE}
+head(simulated_oac_age_sex)
+```
+
+The figure below demonstrates the extent of the model's uncertainty due to the issue of oversampling - that is, instances where the same respondent is assigned to the same OA several times. There appears to be a higher concentration of oversampling near the city region, evident by the darker shades in the figure. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10,,,fig.cap="Simulation Oversampling"}
+# Generate OA-level summary statistics on weights.
+temp_weights_summary <- weights_oac_age_sex %>%
+  # Create row_index variable.
+  mutate(row_index=row_number()) %>%
+  # Rather than a matrix, we want a row for each individual and OA.
+  gather(key=oa_code, value=weight, -row_index) %>%
+  group_by(oa_code) %>%
+  filter(weight>0) %>%
+  summarise(weight_mean=mean(weight), weight_max=max(weight), weight_sd=sd(weight)) %>%
+  ungroup()
+
+# Generate OA-level summary statistics on simulated data.
+temp_simulated_summary <- simulated_oac_age_sex %>%
+  group_by(zone) %>%
+  summarise(distinct_persons=n_distinct(person_id), total_person=n(),
+  sim_oversample=1-(distinct_persons/total_person)) %>%
+  select(zone, sim_oversample)
+
+# Merge and gather for charting.
+oa_level_summary <- temp_weights_summary %>%
+  inner_join(temp_simulated_summary, by=c("oa_code"="zone")) %>%
+  gather(key="statistic_type", value="statistic_value",-oa_code)
+
+# Set up plot
+plot_data <- oa_level_summary %>%
+  group_by(statistic_type) %>%
+  mutate(
+    # Rescale summary stats between 0 and 1 for local scale on facet.
+    statistic_value_rescale=scales::rescale(statistic_value, to=c(0,1), from=c(min(statistic_value), max(statistic_value))),
+    # Cut into equal-range bins as per histogram.
+    statistic_value_bin=cut_interval(statistic_value_rescale, 10, labels=FALSE)
+  ) %>%
+  ungroup()
+# Merge with oa_boundaries for plotting.
+plot1 <- oa_boundaries %>%
+  left_join(plot_data) %>%
+  ggplot()+
+    geom_sf(aes(fill=statistic_value_bin), colour=NA)+
+    geom_sf(data=ward_boundaries, fill="transparent", colour="#636363", size=0.1)+
+    coord_sf(crs=st_crs(oa_boundaries), datum=NA)+
+    scale_fill_distiller(palette="Blues", direction=1, guide=FALSE)+
+    theme(axis.title=element_blank())+
+    facet_wrap(~statistic_type, nrow=1)+theme_void()
+# create plot
+plot2 <- oa_level_summary %>%
+  # Rescale summary stats between 0 and 1 for local scale on facet.
+  group_by(statistic_type) %>%
+  mutate(
+    statistic_value_rescale=
+      scales::rescale(statistic_value, to=c(0,1), from=c(min(statistic_value), max(statistic_value)))
+    ) %>%
+  ungroup() %>%
+  ggplot(aes(x=statistic_value_rescale, fill=..x..))+
+  geom_histogram(colour="#636363", size=0.1, bins=10) +
+  facet_wrap(~statistic_type, nrow=1) +
+  scale_fill_distiller(palette="Blues", direction=1, guide=FALSE)+theme_minimal()+theme(
+  strip.background = element_blank(),
+  strip.text.x = element_blank()
+)+ylab("Count")+xlab("Statistic Value Rescale")
+# Display in plots pane.
+grid.arrange(plot1,plot2, nrow=2)
+```
+
+The microsimulated data allows us to, as previously mentioned, to have an idea of the top destinations by location. The dotplot of frequencies by holiday type can be seen below:
+
+```{r, echo=FALSE, fig.height=10, fig.width=10, fig.cap="Top Destinations by Holiday Type"}
+# Generate tibble of countries ordered by frequency (for ordered factors).
+order_country <- simulated_oac_age_sex %>%
+  filter(Holiday_type=="Beach") %>% 
+  group_by(dest_airport_country) %>%
+  summarise(count=n()) %>%
+  arrange(-count)
+
+# Cleveland dot plot of destinations, grouped by country.
+plot3 <- simulated_oac_age_sex %>%
+  filter(Holiday_type=="Beach") %>% 
+  # Order dest countries, casting as a factor and ordering levels on frequency.
+  mutate(dest_airport_country=factor(dest_airport_country,levels=order_country$dest_airport_country)) %>%
+  # Calculate num holidays to each dest airport.
+  group_by(overseas_airport) %>%
+    summarise(count_airport=n(), dest_airport_country=first(dest_airport_country)) %>%
+    # Order by these frequencies.
+    arrange(count_airport) %>%
+    # Cast as factor and order levels.
+    mutate(overseas_airport=factor(overseas_airport,levels=.$overseas_airport)) %>%
+  # List airports vertically and frequencies horizontally.
+  ggplot(aes(x=count_airport,y=overseas_airport))+
+    geom_segment(aes(x=0, y=overseas_airport, xend=count_airport, yend=overseas_airport), colour="#636363")+
+    geom_point(colour="#636363", fill="#cccccc", shape=21)+
+    # Facet the plot on country to display group freq by destination country.
+    facet_grid(dest_airport_country~., scales="free_y", space="free_y")+theme_minimal()+theme(
+   strip.text.y = element_text(angle=0))+ggtitle("Beach Holidays")+scale_x_continuous()+ylab("Overseas Airport")+xlab("")
+
+### do the same for holiday type city:
+order_country_ <- simulated_oac_age_sex %>%
+  filter(Holiday_type=="City") %>% 
+  group_by(dest_airport_country) %>%
+  summarise(count=n()) %>%
+  arrange(-count)
+
+# Cleveland dot plot of destinations, grouped by country.
+plot4 <- simulated_oac_age_sex %>%
+  filter(Holiday_type=="City") %>% 
+  # Order dest countries, casting as a factor and ordering levels on frequency.
+  mutate(dest_airport_country=factor(dest_airport_country,levels=order_country_$dest_airport_country)) %>%
+  # Calculate num holidays to each dest airport.
+  group_by(overseas_airport) %>%
+    summarise(count_airport=n(), dest_airport_country=first(dest_airport_country)) %>%
+    # Order by these frequencies.
+    arrange(count_airport) %>%
+    # Cast as factor and order levels.
+    mutate(overseas_airport=factor(overseas_airport,levels=.$overseas_airport)) %>%
+  # List airports vertically and frequencies horizontally.
+  ggplot(aes(x=count_airport,y=overseas_airport))+
+    geom_segment(aes(x=0, y=overseas_airport, xend=count_airport, yend=overseas_airport), colour="#636363")+
+    geom_point(colour="#636363", fill="#cccccc", shape=21)+
+    # Facet the plot on country to display group freq by destination country.
+    facet_grid(dest_airport_country~., scales="free_y", space="free_y")+theme_minimal()+theme(
+   strip.text.y = element_text(angle=0))+ ggtitle("City Holidays")+ylab("")+xlab("")
+
+# Display both plots together:
+grid.arrange(plot3,plot4, ncol=2)
+```
+
+As we can see, top beach destinations are Spain, Greece and Egypt. For cities, Turkey, Tunisia and the USA come on top. In turn, we profile the holidaymakers going to these locations of Orlando (MCO), Florida (SFB) and Las Vegas (LAS). 
+
+
+
+
+
+
+

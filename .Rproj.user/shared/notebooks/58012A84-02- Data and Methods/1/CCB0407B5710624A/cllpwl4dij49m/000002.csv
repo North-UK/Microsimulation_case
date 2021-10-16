@@ -1,0 +1,12 @@
+"0","# Generate tibble of countries ordered by frequency (for ordered factors).
+order_country <- simulated_oac_age_sex %>%
+  filter(Holiday_type==""Beach"") %>% 
+  group_by(dest_airport_country) %>%
+  summarise(count=n()) %>%
+  arrange(-count)
+"
+"2","Error: Problem with `filter()` input `..1`.
+[34mi[39m Input `..1` is `Holiday_type == ""Beach""`.
+[31mx[39m object 'Holiday_type' not found
+[90mRun `rlang::last_error()` to see where the error occurred.[39m
+"

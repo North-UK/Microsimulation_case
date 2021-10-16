@@ -1,0 +1,6 @@
+"0","# Display in plots pane.
+grid.arrange(plot1,plot2, nrow=2)
+"
+"2","Error in grid.arrange(plot1, plot2, nrow = 2) : 
+  could not find function ""grid.arrange""
+"

@@ -1,0 +1,24 @@
+--- 
+title: "Identifying Holidaymaking Behaviour in Leeds through Spatial Microsimulation"
+author: "Henrique Moura"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography: [book.bib, packages.bib]
+biblio-style: apalike
+link-citations: yes
+description: "GEOG5042M Predictive Analytics module assigment, part of the MSc Consumer Analytics and Marketing Strategy."
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(tidyverse,sf, grid, grid,gridExtra, GGally,kableExtra, knitr)
+load("weights_oac_age_sex.rda")
+load("Microsimulated_data.rda")
+load("Props_function.rda")
+oa_boundaries <- st_read("./data/oa_boundaries.geojson", crs=27700)
+ward_boundaries <- st_read("./data/ward_boundaries.geojson", crs=27700)
+```
+
+# Executive Summary 
+
+This report works with a microsimulated dataset to profile holiday makers behavior at the household level. It does so by profiling individuals that go on holiday to the USA, based on 5 different characteristics. It finalizes by recommending a targeted marketing campaign based on the findings. 

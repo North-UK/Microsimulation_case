@@ -1,0 +1,10 @@
+"0","# Check levels and variable names exactly match.
+all.equal(
+  levels(individuals$age_sex),
+  colnames(age_sex_cons %>% select(-oa_code))
+)
+"
+"1","[1]"
+"1"," TRUE"
+"1","
+"

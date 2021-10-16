@@ -1,0 +1,7 @@
+"0","oa_level_summary %>% # data to work on.
+  ggplot(aes(x=statistic_value))+ # aes() defines the encoding or mapping to data.
+  geom_histogram() + # mark or chart idiom with which data are encoded.
+  facet_wrap(~statistic_type) # split data on a variable for small multiple comparison
+"
+"2","`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+"

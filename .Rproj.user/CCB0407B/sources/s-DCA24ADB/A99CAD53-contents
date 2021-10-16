@@ -1,0 +1,178 @@
+# Data and Methods
+
+We start by generating the microsimulated data by first converting the `individuals` variables to be matched with the constraints tibbles as factors, and then reorder according to the variable order in the constraints tibbles.
+
+```{r refactor-tibbles, eval=FALSE, cache=TRUE}
+individuals <- individuals %>% mutate_at(vars(oac_grp, sex,age_band, age_sex),~factor(.))
+individuals <- individuals %>% mutate(
+  oac_grp=fct_relevel(oac_grp, colnames(oac_cons %>% select(-oa_code))),
+  sex=fct_relevel(sex, colnames(sex_cons %>% select(-oa_code))),
+  age_band=fct_relevel(age_band, colnames(age_cons %>% select(-oa_code))),
+  age_sex=fct_relevel(age_sex, colnames(age_sex_cons %>% select(-oa_code)))
+)
+```
+
+We can check whether the refactored `individuals` exactly match with the constraints tibbles.
+
+```{r check-match, eval=FALSE}
+all.equal(
+  levels(individuals$age_sex),
+  colnames(age_sex_cons %>% select(-oa_code))
+)
+```
+
+First of all, it is necessary to specify the variables that will be used as constraints. For this project we will be using the 'oac_grp' and 'age_sex' constraints, but any constraints could be chosen. 
+
+```{r define-cons, eval=FALSE, cache=TRUE}
+cons_vars <- c("oac_grp", "age_sex")
+temp_cons <- oac_cons %>% inner_join(age_sex_cons)
+
+```
+
+The next step is to generate the weights using 'raker::weight()'. Weights work by indicating the extent to which each respondent in the survey data should be assigned to each OA when the microdimulated dataset is generated. The resulting weights contains paris for each individual respondent and Output Area. 
+
+```{r calculate-weights, eval=FALSE, cache=TRUE}
+weights_oac_age_sex <- rakeR::weight(cons=temp_cons, inds=individuals %>% select(person_id, oac_grp, age_sex), vars=cons_vars)
+```
+
+Now, it becomes necessary to move from fractional to integer weights. Individuals are in turn 'cloned' and assigned to OAs that are consistent with the data. 
+
+```{r generate-simulated-data, eval=FALSE, cache=TRUE}
+simulated_oac_age_sex <- rakeR::rake(cons=temp_cons, inds=individuals %>% select(person_id, oac_grp, age_sex),
+                                vars=cons_vars, output = "integer",
+                                method = "trs", seed = 42)
+```
+
+The microsimulated data now contains 19 variables, one of which was determined after generating the microsimulated data (Holiday_type). The variables are summarised below:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(kableExtra)
+data_overview <- tribble(
+  ~Variable, ~Detail,
+  "Person_id", "Correspondent's ID.",
+  "Zone", "Leds OA.",
+  "Oac_grp", "Output area classification of OA.",
+  "Sex", "Sex of the respondents",
+  "Age_band", "Range age of respondents.",
+  "Number_children", "Number of children per respondent",
+  "Household_income", "Income per respondents",
+  "Overseas_airport", "Name of the destination airport.",
+  "UK_airport", "Name of the airport in the UK.",
+  "Satisafaction_overall","Level of satisfaction of last holiday.",
+  "Age_sex", "A combination of the sex and age band variables.",
+  "Supergroup_name", "Respondent's supergroup.",
+  "Dest_airport_name", "The name of the destination airport.",
+  "Dest_airport_city","City the destination airport is in.",
+  "Dest_airport_country","Country the destination airport is in.",
+  "Orig_airport_name","Origin airport.",
+  "Orig_airport_city","City the origin airport.",
+  "Holiday_type", "City the origin airport is in in.")
+kable(data_overview, "html") %>% 
+ kable_styling(full_width=F)
+```
+
+
+## Summary Statistics
+
+We can now explore the simulated data to see whether it is fully representative of all areas in Leeds. The code and figures below tells us an interesting picture about our model's uncertainty, as they indicate the extent of oversamplig - or where the same individual is assigned to the same OA several times. 
+
+```{r oa-stats, eval=FALSE, cache=TRUE}
+# Generate OA-level summary statistics on weights.
+temp_weights_summary <- weights_oac_age_sex %>%
+  # Create row_index variable.
+  mutate(row_index=row_number()) %>%
+  # Rather than a matrix, we want a row for each individual and OA.
+  gather(key=oa_code, value=weight, -row_index) %>%
+  group_by(oa_code) %>%
+  filter(weight>0) %>%
+  summarise(weight_mean=mean(weight), weight_max=max(weight), weight_sd=sd(weight)) %>%
+  ungroup()
+
+# Generate OA-level summary statistics on simulated data.
+temp_simulated_summary <- simulated_oac_age_sex %>%
+  group_by(zone) %>%
+  summarise(distinct_persons=n_distinct(person_id), total_person=n(),
+  sim_oversample=1-(distinct_persons/total_person)) %>%
+  select(zone, sim_oversample)
+
+# Merge and gather for charting.
+oa_level_summary <- temp_weights_summary %>%
+  inner_join(temp_simulated_summary, by=c("oa_code"="zone")) %>%
+  gather(key="statistic_type", value="statistic_value",-oa_code)
+
+# Set up plot
+plot_data <- oa_level_summary %>%
+  group_by(statistic_type) %>%
+  mutate(
+    # Rescale summary stats between 0 and 1 for local scale on facet.
+    statistic_value_rescale=scales::rescale(statistic_value, to=c(0,1), from=c(min(statistic_value), max(statistic_value))),
+    # Cut into equal-range bins as per histogram.
+    statistic_value_bin=cut_interval(statistic_value_rescale, 10, labels=FALSE)
+  ) %>%
+  ungroup()
+# Merge with oa_boundaries for plotting.
+plot1 <- oa_boundaries %>%
+  left_join(plot_data) %>%
+  ggplot()+
+    geom_sf(aes(fill=statistic_value_bin), colour=NA)+
+    geom_sf(data=ward_boundaries, fill="transparent", colour="#636363", size=0.1)+
+    coord_sf(crs=st_crs(oa_boundaries), datum=NA)+
+    scale_fill_distiller(palette="Blues", direction=1, guide=FALSE)+
+    theme(axis.title=element_blank())+
+    facet_wrap(~statistic_type, nrow=1)+theme_void()
+# create plot
+plot2 <- oa_level_summary %>%
+  # Rescale summary stats between 0 and 1 for local scale on facet.
+  group_by(statistic_type) %>%
+  mutate(
+    statistic_value_rescale=
+      scales::rescale(statistic_value, to=c(0,1), from=c(min(statistic_value), max(statistic_value)))
+    ) %>%
+  ungroup() %>%
+  ggplot(aes(x=statistic_value_rescale, fill=..x..))+
+  geom_histogram(colour="#636363", size=0.1, bins=10) +
+  facet_wrap(~statistic_type, nrow=1) +
+  scale_fill_distiller(palette="Blues", direction=1, guide=FALSE)+theme_minimal()+theme(
+  strip.background = element_blank(),
+  strip.text.x = element_blank()
+)+ylab("Count")+xlab("Statistic Value Rescale")
+# Display in plots pane.
+grid.arrange(plot1,plot2, nrow=2)
+```
+
+Looking at the statistics, we can observe how there are some OAs in Leeds that are less well represented by the individual survey data, represented by darker shades of color. 
+
+```{r, echo=FALSE, fig.height=10, fig.width=10, fig.cap="Top Destinations by Holiday Type"}
+# Generate tibble of countries ordered by frequency (for ordered factors).
+order_country <- simulated_oac_age_sex %>%
+  filter(Holiday_type=="Beach") %>% 
+  group_by(dest_airport_country) %>%
+  summarise(count=n()) %>%
+  arrange(-count)
+
+# Cleveland dot plot of destinations, grouped by country.
+plot3 <- simulated_oac_age_sex %>%
+  filter(Holiday_type=="Beach") %>% 
+  # Order dest countries, casting as a factor and ordering levels on frequency.
+  mutate(dest_airport_country=factor(dest_airport_country,levels=order_country$dest_airport_country)) %>%
+  # Calculate num holidays to each dest airport.
+  group_by(overseas_airport) %>%
+    summarise(count_airport=n(), dest_airport_country=first(dest_airport_country)) %>%
+    # Order by these frequencies.
+    arrange(count_airport) %>%
+    # Cast as factor and order levels.
+    mutate(overseas_airport=factor(overseas_airport,levels=.$overseas_airport)) %>%
+  # List airports vertically and frequencies horizontally.
+  ggplot(aes(x=count_airport,y=overseas_airport))+
+    geom_segment(aes(x=0, y=overseas_airport, xend=count_airport, yend=overseas_airport), colour="#636363")+
+    geom_point(colour="#636363", fill="#cccccc", shape=21)+
+    # Facet the plot on country to display group freq by destination country.
+    facet_grid(dest_airport_country~., scales="free_y", space="free_y")+theme_minimal()+theme(
+   strip.text.y = element_text(angle=0))+ggtitle("Beach Holidays")+scale_x_continuous()+ylab("Overseas Airport")+xlab("")
+
+```
+
+As the data reveals, the top beach destinations appear to be Spain, Greece 
+
+
+

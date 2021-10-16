@@ -1,0 +1,5 @@
+"0","# Join to generate a single constraint table.
+temp_cons <- oac_cons %>% inner_join(age_sex_cons)
+"
+"1","Joining, by = ""oa_code""
+"

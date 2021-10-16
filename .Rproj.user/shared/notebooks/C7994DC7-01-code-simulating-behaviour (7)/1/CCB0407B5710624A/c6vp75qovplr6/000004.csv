@@ -1,0 +1,6 @@
+"0","# Save to project directory.
+ggsave(""stats_histograms.png"", plot, width=10, height=2.5)
+"
+"2","Warning:"
+"2"," It is deprecated to specify `guide = FALSE` to remove a guide. Please use `guide = ""none""` instead.
+"

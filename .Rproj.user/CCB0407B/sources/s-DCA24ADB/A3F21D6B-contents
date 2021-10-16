@@ -1,0 +1,114 @@
+#Results
+
+With the city of list destinations we can go on to compare how the population holidaying to those destinations differ from the general Leeds population. By focusing on 5 demographic variables, namely age band, number of children, overall satisfaction, supergroup name and household income, we can see how holiday makers compare to the general population. 
+
+```{r, echo=FALSE, fig.width=10, fig.height=10, message=FALSE, warning=FALSE, fig.cap="Difference in Proportion of Characteristics off Holidaymakers to Orlando and Las Vegas"}
+#Create a vector of the names of grouping variables that will be summarised over.
+groups <- names(simulated_oac_age_sex %>%
+                  select(supergroup_name, age_band:household_income, satisfaction_overall))
+# Identify the destination in focus.
+focus <- c("SFB","LAS", "MCO")
+control <- "ALL"
+
+# calculate_props() requires control and focus variables, not yet contained in
+# simulated dataset. Create a new dataset with these added.
+temp_simulated_data <- simulated_oac_age_sex %>%
+  mutate(
+    focus_var=if_else(overseas_airport %in% focus,1,0),
+    control_var=1,
+    focus_total=sum(focus_var),
+    control_total=sum(control_var),
+    number_children=as.character(number_children)
+ )
+
+# Iterate over each grouping variable, using map_df to bind rows of returned
+# data frames.
+temp_plot_data <-
+ purrr::map_df(groups, ~calculate_props(temp_simulated_data, rlang::sym(.x)))
+rm(temp_simulated_data)
+
+# Define two colours used to colour pos and neg bars differently
+fill_colours <- c("#ffffff", "#cccccc")
+plot5 <- temp_plot_data %>%
+  gather(key=stat_type, value=stat_value, -c(variable_type, variable_name)) %>%
+  mutate(
+    stat_type=factor(stat_type, levels=c("focus_prop","control_prop","diff_prop")),
+    stat_sign=stat_value>0
+  ) %>%
+  filter(!is.na(variable_name)) %>%
+  ggplot(aes(x=variable_name, y=stat_value))+
+  # stat_sign is a boolean identifying whether stat_value is pos or neg.
+  geom_col(aes(fill=stat_sign), colour="#636363", size=0.3)+
+  scale_fill_manual(values=fill_colours, guide=FALSE)+
+  facet_grid(variable_type~stat_type, scales="free", space="free_y")+
+  labs(caption=paste0("focus var : SFB, MCO, LAS "," | control var : ",control))+
+  coord_flip()+
+  theme(axis.title=element_blank(), strip.text.y = element_text(angle=0))+ 
+  theme_minimal()+theme(
+   strip.text.y = element_text(angle=0))+ylab("")+xlab("")
+
+# Print plot to console
+plot5
+```
+
+We can see how these holiday makers tend to be more mature, 35 to 49, with children, usually 2. These holiday makers also have a houselhold income of 41-50k, and appear to on the end part of the scale in terms of satisfaction with their holidays. They also belong to the Suburbanites/Urbanites, indicating a possible richer and comfortable segment of society. 
+
+To expand on this knowledge, we can map the geographical distribution of holidaymakers. Unsurprisingly, they are located around the edge of towns, reflecting their supergroup codes. 
+
+```{r,echo=FALSE, fig.width=10, fig.height=10, message=FALSE, warning=FALSE, fig.cap="Geographical Distribution of Target Market"}
+# Mapp survey variables of choice?
+temp_target_data <-
+  simulated_oac_age_sex %>%
+    summarise(
+      oa_code=zone,
+      is_target_age=as.numeric(age_band %in% c("a35to49")),
+      is_target_children=as.numeric(number_children>0),
+      is_target_geodeom=as.numeric(supergroup_name =="Suburbanites"),
+      is_target_satisfaction=as.numeric(satisfaction_overall == "1_poor")
+) %>% 
+  rowwise() %>%
+  mutate(
+    target_extent=sum(is_target_age,is_target_children, is_target_geodeom)
+    ) %>%
+  ungroup() %>%
+  mutate(
+      target_extent_coded=
+      case_when(
+        target_extent == 4 ~ "high",
+        target_extent == 3 ~ "high",
+        target_extent == 2 ~ "mid",
+        target_extent == 1 ~ "low",
+        TRUE ~ ""
+        )
+  ) %>%
+  group_by(oa_code) %>%
+  summarise(
+    high=sum(as.numeric(target_extent_coded=="high")),
+    mid=sum(as.numeric(target_extent_coded=="mid")),
+    low=sum(as.numeric(target_extent_coded=="low")),
+    index=sum(target_extent)
+  )
+# Plot high to low chloropeth maps:
+plot7 <- oa_boundaries %>%
+left_join(temp_target_data  %>%
+          pivot_longer(
+            cols=c(high),
+            names_to="target_extent",
+            values_to="count")
+        ) %>%
+mutate(
+  target_extent=
+  factor(target_extent, levels=c("high"))
+) %>%
+ggplot()+
+  geom_sf(aes(fill=count), colour=NA)+
+  geom_sf(data=. %>% summarise(),
+    fill="transparent", colour="#756bb1", size=0.2)+
+  coord_sf(crs=st_crs(oa_boundaries), datum=NA)+
+  scale_fill_distiller(palette="Purples", direction=1)+theme_minimal()
+  # facet_wrap(~target_extent, nrow=3)+theme_minimal()
+##
+plot7
+```
+
+

@@ -1,0 +1,32 @@
+"0","ward_boundaries <- st_read(""./data/ward_boundaries.geojson"", crs=27700)
+"
+"1","Reading layer `"
+"1","ward_boundaries"
+"1","' from data source "
+"1","
+"
+"1","  "
+"1","`"
+"1","C:\Users\sud_m\Downloads\data\ward_boundaries.geojson"
+"1","' "
+"1","using driver `"
+"1","GeoJSON"
+"1","'"
+"1","
+"
+"2","Warning:"
+"2"," st_crs<- : replacing crs does not reproject data; use st_transform for that
+"
+"1","Simple feature collection with 33 features and 10 fields"
+"1","
+"
+"1","Geometry type: MULTIPOLYGON
+"
+"1","Dimension:     XY
+"
+"1","Bounding box:  "
+"1","xmin: 413215.8 ymin: 422595.2 xmax: 446768.7 ymax: 450177.2"
+"1","
+"
+"1","Projected CRS: OSGB 1936 / British National Grid
+"
